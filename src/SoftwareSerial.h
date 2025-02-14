@@ -200,6 +200,10 @@ public:
     void enableRxGPIOPullUp(bool on);
     /// Enable or disable (default) tx GPIO output mode.
     void enableTxGPIOOpenDrain(bool on);
+#ifdef xTaskNotify
+    /// Enable or disable (default) FreeRTOS task notify
+    void enableNotify(TaskHandle_t task);
+#endif
 
     bool overflow();
 
@@ -387,6 +391,9 @@ private:
     std::unique_ptr<circular_queue<uint8_t> > m_parityBuffer;
     uint32_t m_periodStart;
     uint32_t m_periodDuration;
+#ifdef xTaskNotify
+    TaskHandle_t m_notifyTask = nullptr;
+#endif
 #ifndef ESP32
     static uint32_t m_savedPS;
 #else
