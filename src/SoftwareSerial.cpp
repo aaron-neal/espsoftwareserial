@@ -87,6 +87,7 @@ void UARTBase::begin(uint32_t baud, Config config,
     m_stopBits = 1 + ((config & 0300) ? 1 : 0);
     m_pduBits = m_dataBits + static_cast<bool>(m_parityMode) + m_stopBits;
     m_bitTicks = (microsToTicks(1000000UL) + baud / 2) / baud;
+    m_origBitTicks = m_bitTicks;
     m_intTxEnabled = true;
 }
 
@@ -151,6 +152,12 @@ void UARTBase::setTransmitEnablePin(int8_t txEnablePin) {
 
 void UARTBase::enableIntTx(bool on) {
     m_intTxEnabled = on;
+}
+
+void UARTBase::enableAutoBaud(bool on, uint8_t sep) {
+    m_autoBaudEnabled = on;
+    m_autoBaud = false;
+    m_frameSep = sep;
 }
 
 void UARTBase::enableRxGPIOPullUp(bool on) {
@@ -493,6 +500,11 @@ void UARTBase::rxBits(const uint32_t isrTick) {
     uint32_t ticksDiff = isrTick - m_isrLastTick;
     m_isrLastTick = isrTick;
 
+    if (m_autoBaudEnabled && (ticksDiff > m_origBitTicks*(m_pduBits+1))) {
+        m_autoBaud = true;
+        m_bitTicks = m_origBitTicks;
+    }
+
     uint32_t bits = ticksDiff / m_bitTicks;
     if (ticksDiff % m_bitTicks > (m_bitTicks >> 1)) ++bits;
     while (bits > 0) {
@@ -502,6 +514,9 @@ void UARTBase::rxBits(const uint32_t isrTick) {
             if (level) break;
             m_rxLastBit = -1;
             --bits;
+            if (m_autoBaud) {
+                m_rxByteTicks = 0;
+            }
             continue;
         }
         // data bits
@@ -511,6 +526,9 @@ void UARTBase::rxBits(const uint32_t isrTick) {
             bits -= dataBits;
             m_rxCurByte >>= dataBits;
             if (level) { m_rxCurByte |= (BYTE_ALL_BITS_SET << (8 - dataBits)); }
+            if (m_autoBaud) {
+                m_rxByteTicks += ticksDiff;
+            }
             continue;
         }
         // parity bit
@@ -525,6 +543,10 @@ void UARTBase::rxBits(const uint32_t isrTick) {
         // if not high stop bit level, discard word
         if (bits >= static_cast<uint32_t>(m_pduBits - 1 - m_rxLastBit) && level) {
             m_rxCurByte >>= (sizeof(uint8_t) * 8 - m_dataBits);
+            if (m_autoBaud && (m_rxCurByte == m_frameSep)) {
+                m_bitTicks = (m_rxByteTicks + (m_dataBits>>1)) / m_dataBits;
+                m_autoBaud = false;
+            }
             if (!m_buffer->push(m_rxCurByte)) {
                 m_overflow = true;
             }

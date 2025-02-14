@@ -194,6 +194,8 @@ public:
     void setTransmitEnablePin(int8_t txEnablePin);
     /// Enable (default) or disable interrupts during tx.
     void enableIntTx(bool on);
+    /// Enable baud rate estimation based on frame separator
+    void enableAutoBaud(bool on, uint8_t sep = 0x55);
     /// Enable (default) or disable internal rx GPIO pull-up.
     void enableRxGPIOPullUp(bool on);
     /// Enable or disable (default) tx GPIO output mode.
@@ -371,7 +373,12 @@ private:
     uint8_t m_stopBits;
     bool m_lastReadParity;
     bool m_overflow = false;
+    bool m_autoBaud = false;
+    bool m_autoBaudEnabled = false;
+    uint8_t m_frameSep;
+    uint32_t m_rxByteTicks;
     uint32_t m_bitTicks;
+    uint32_t m_origBitTicks;
     uint8_t m_parityInPos;
     uint8_t m_parityOutPos;
     int8_t m_rxLastBit; // 0 thru (m_pduBits - m_stopBits - 1): data/parity bits. -1: start bit. (m_pduBits - 1): stop bit.
