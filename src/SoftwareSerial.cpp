@@ -170,11 +170,9 @@ void UARTBase::enableTxGPIOOpenDrain(bool on) {
     setTxGPIOPinMode();
 }
 
-#ifdef xTaskNotify
 void UARTBase::enableNotify(TaskHandle_t task) {
     m_notifyTask = task;
 }
-#endif
 
 void UARTBase::enableTx(bool on) {
     if (m_txValid && m_oneWire) {
@@ -573,11 +571,11 @@ void UARTBase::rxBits(const uint32_t isrTick) {
                     }
                 }
             }
-#ifdef xTaskNotify
+
             if (m_notifyTask) {
                 xTaskNotify(m_notifyTask, 0, eSetValueWithOverwrite);
             }
-#endif
+
         }
         m_rxLastBit = m_pduBits - 1;
         // reset to 0 is important for masked bit logic
